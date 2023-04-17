@@ -2,6 +2,10 @@
 
 
 
+服务端例程详见[this repo]([leenjewel/node-kcp: KCP Protocol for Node.js (github.com)](https://github.com/leenjewel/node-kcp))
+
+
+
 （有空再来更说明）
 
 
