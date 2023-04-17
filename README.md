@@ -14,7 +14,7 @@
 
 服务端重启会导致接收的问题
 
-![重连问题](known_issue\重连问题.png)
+![重连问题](known_issue/重连问题.png)
 
 see [this issue]([关于发送端开始发送后，若接收端重启后会无法接收数据 · Issue #94 · skywind3000/kcp (github.com)](https://github.com/skywind3000/kcp/issues/94))
 
