@@ -109,7 +109,6 @@ void loop() {
         retrans_time ++;
         if (retrans_time > 1000) {
             retrans_time = 0;
-            // ikcp_send(kcp, "hello from esp32", 17);
             Serial.println("restart kcp");
             kcp_deinit();
             kcp_init();
