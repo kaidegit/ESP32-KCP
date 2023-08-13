@@ -26,7 +26,7 @@ int udp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
         void *ptr;
     } parameter;
     parameter.ptr = user;
-    udp.writeTo((const uint8_t *)buf, len, remoteIP, udp_port);
+    udp.writeTo((const uint8_t *)buf, len, remoteIP, remote_port);
     return 0;
 }
 
@@ -55,24 +55,24 @@ void KCP_Thread(void *para) {
     }
     Serial.println("UDP listening at port " + String(udp_port));
     udp.onPacket([&](AsyncUDPPacket packet) {
-        // ikcp_input(kcp, (const char *)packet.data(), packet.length());
+        ikcp_input(kcp, (const char *)packet.data(), packet.length());
 
-        Serial.print("UDP Packet Type: ");
-        Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
-                                                                               : "Unicast");
-        Serial.print(", From: ");
-        Serial.print(packet.remoteIP());
-        Serial.print(":");
-        Serial.print(packet.remotePort());
-        Serial.print(", To: ");
-        Serial.print(packet.localIP());
-        Serial.print(":");
-        Serial.print(packet.localPort());
-        Serial.print(", Length: ");
-        Serial.print(packet.length());
-        Serial.print(", Data: ");
-        Serial.write(packet.data(), packet.length());
-        Serial.println();
+        // Serial.print("UDP Packet Type: ");
+        // Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
+        //                                                                        : "Unicast");
+        // Serial.print(", From: ");
+        // Serial.print(packet.remoteIP());
+        // Serial.print(":");
+        // Serial.print(packet.remotePort());
+        // Serial.print(", To: ");
+        // Serial.print(packet.localIP());
+        // Serial.print(":");
+        // Serial.print(packet.localPort());
+        // Serial.print(", Length: ");
+        // Serial.print(packet.length());
+        // Serial.print(", Data: ");
+        // Serial.write(packet.data(), packet.length());
+        // Serial.println();
 
         remote_port = packet.remotePort();
         // // reply to the client
@@ -82,24 +82,33 @@ void KCP_Thread(void *para) {
 
     // udp.broadcast("Anyone here?");
 
-    // kcp_init();
+    kcp_init();
 
     uint32_t cnt = 0;
     while (1) {
-        delay(1000);
-        char msg[1024];
-        sprintf(msg, "hello client %d", cnt++);
-        udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, remote_port);
+        // delay(1000);
+        // char msg[1024];
+        // sprintf(msg, "hello client %d", cnt++);
+        // udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, remote_port);
         // Send broadcast
         //  udp.broadcast("Anyone here?");
 
-        // ikcp_update(kcp, millis());
-        // auto len = ikcp_recv(kcp, buf, 1024);
-        // if (len > 0) {
-        //     Serial.println("kcp recv");
-        //     buf[len] = 0;
-        //     Serial.println(buf);
-        // }
+        ikcp_update(kcp, millis());
+        auto len = ikcp_recv(kcp, buf, 1024);
+        if (len > 0) {
+            Serial.println("kcp recv");
+            buf[len] = 0;
+            Serial.println(buf);
+        }
+
+        cnt++;
+        if (cnt % 150 == 0) {
+            char msg[1024];
+            sprintf(msg, "hello slave %d", cnt);
+            Serial.println("kcp send");
+            ikcp_send(kcp, msg, strlen(msg));
+        }
+        delay(10);
     }
 }
 
