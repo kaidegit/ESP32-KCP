@@ -9,6 +9,8 @@ static const char *PASSWORD = "12345678";
 
 WiFiServer server(12345, 1);
 IPAddress myIP;
+IPAddress remoteIP;
+uint16_t remote_port;
 
 uint16_t udp_port, kcp_conv;
 
@@ -16,19 +18,20 @@ AsyncUDP udp;
 
 ikcpcb *kcp;
 
+TaskHandle_t kcp_task_handle;
+
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
     union {
         int id;
         void *ptr;
     } parameter;
     parameter.ptr = user;
-    // vnet->send(parameter.id, buf, len);
-    udp.write((const uint8_t *)buf, (size_t)len);
+    udp.writeTo((const uint8_t *)buf, len, remoteIP, udp_port);
     return 0;
 }
 
 void kcp_init() {
-    uint32_t conv = 0x11223344;
+    uint32_t conv = kcp_conv;
     kcp = ikcp_create(conv, (void *)0);
 
     kcp->output = udp_output;
@@ -41,6 +44,63 @@ void kcp_deinit() {
     ikcp_flush(kcp);
     ikcp_release(kcp);
     kcp = nullptr;
+}
+
+void KCP_Thread(void *para) {
+    static char buf[1024];
+
+    if (!udp.listen(udp_port)) {
+        Serial.println("UDP listen failed");
+        vTaskDelete(NULL);
+    }
+    Serial.println("UDP listening at port " + String(udp_port));
+    udp.onPacket([&](AsyncUDPPacket packet) {
+        // ikcp_input(kcp, (const char *)packet.data(), packet.length());
+
+        Serial.print("UDP Packet Type: ");
+        Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
+                                                                               : "Unicast");
+        Serial.print(", From: ");
+        Serial.print(packet.remoteIP());
+        Serial.print(":");
+        Serial.print(packet.remotePort());
+        Serial.print(", To: ");
+        Serial.print(packet.localIP());
+        Serial.print(":");
+        Serial.print(packet.localPort());
+        Serial.print(", Length: ");
+        Serial.print(packet.length());
+        Serial.print(", Data: ");
+        Serial.write(packet.data(), packet.length());
+        Serial.println();
+
+        remote_port = packet.remotePort();
+        // // reply to the client
+
+        // packet.printf("Got %u bytes of data", packet.length());
+    });
+
+    // udp.broadcast("Anyone here?");
+
+    // kcp_init();
+
+    uint32_t cnt = 0;
+    while (1) {
+        delay(1000);
+        char msg[1024];
+        sprintf(msg, "hello client %d", cnt++);
+        udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, remote_port);
+        // Send broadcast
+        //  udp.broadcast("Anyone here?");
+
+        // ikcp_update(kcp, millis());
+        // auto len = ikcp_recv(kcp, buf, 1024);
+        // if (len > 0) {
+        //     Serial.println("kcp recv");
+        //     buf[len] = 0;
+        //     Serial.println(buf);
+        // }
+    }
 }
 
 void TCP_Thread(void *para) {
@@ -64,7 +124,14 @@ void TCP_Thread(void *para) {
                     cJSON_free(json);
                     cJSON_Delete(root);
                     cnt = 0;
-                    // TODO: start kcp thread
+                    // start kcp thread
+                    xTaskCreate(
+                        KCP_Thread,
+                        "KCP_Thread",
+                        4096,
+                        NULL,
+                        5,
+                        &kcp_task_handle);
                 } else {
                     client.println("pong");
                     cnt = 0;
@@ -74,6 +141,11 @@ void TCP_Thread(void *para) {
                 // do not ping in 2s
                 if (cnt > 2000) {
                     client.~WiFiClient();
+                    if (kcp_task_handle) {
+                        Serial.println("delete kcp task");
+                        vTaskDelete(kcp_task_handle);
+                        kcp_task_handle = NULL;
+                    }
                 }
             }
         } else { // client is not connected
@@ -81,6 +153,8 @@ void TCP_Thread(void *para) {
             if (hasClient) {
                 Serial.println("new client");
                 client = server.available();
+                remoteIP = client.remoteIP();
+                Serial.println("remote ip: " + remoteIP.toString());
                 cnt = 0;
             }
         }

@@ -8,8 +8,12 @@ static const char *SSID = "ESP32-Master";
 static const char *PASSWORD = "12345678";
 
 AsyncUDP udp;
+IPAddress remoteIP(192, 168, 4, 1);
+uint16_t udp_port, kcp_conv;
 
 ikcpcb *kcp;
+
+TaskHandle_t kcp_task_handle;
 
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
     union {
@@ -38,6 +42,52 @@ void kcp_deinit() {
     kcp = nullptr;
 }
 
+void KCP_Thread(void *para) {
+    if (!udp.connect(IPAddress(192, 168, 4, 1), udp_port)) {
+        Serial.println("UDP connect failed");
+        vTaskDelete(NULL);
+    }
+    Serial.println("UDP connected at port " + String(udp_port));
+    udp.onPacket([](AsyncUDPPacket packet) {
+        Serial.print("UDP Packet Type: ");
+        Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
+                                                                               : "Unicast");
+        Serial.print(", From: ");
+        Serial.print(packet.remoteIP());
+        Serial.print(":");
+        Serial.print(packet.remotePort());
+        Serial.print(", To: ");
+        Serial.print(packet.localIP());
+        Serial.print(":");
+        Serial.print(packet.localPort());
+        Serial.print(", Length: ");
+        Serial.print(packet.length());
+        Serial.print(", Data: ");
+        Serial.write(packet.data(), packet.length());
+        Serial.println();
+        // reply to the client
+        // packet.printf("Got %u bytes of data", packet.length());
+    });
+    // Send unicast
+    // udp.broadcastTo("Anyone here?", 1234);
+    // delay(100);
+    // udp.print("Hello Server!");
+    // delay(100);
+    // const char* msg = "Hello Server!";
+    // udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, udp_port);
+    uint32_t cnt = 0;
+    while (1) {
+        // delay(1000);
+        // udp.broadcastTo("Anyone here?", udp_port);
+        char msg[1024];
+        sprintf(msg, "hello master %d", cnt++);
+        udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, udp_port);
+        // delay(1000);
+        // udp.print("Hello Server!");
+        delay(1000);
+    }
+}
+
 void TCP_Thread(void *para) {
     static auto client = WiFiClient();
     static auto cnt = 0;
@@ -55,21 +105,30 @@ void TCP_Thread(void *para) {
                     if (root) {
                         cJSON *ip_json = cJSON_GetObjectItem(root, "ip");
                         if (ip_json) {
-                            auto ip = ip_json->valuestring;
-                            Serial.println("ip: " + String(ip));
+                            // TODO not use it yet
+                            // remoteIP.fromString(ip_json->valuestring);
+                            // Serial.println("ip: " + remoteIP.toString());
                         }
                         cJSON *port_json = cJSON_GetObjectItem(root, "udp_port");
                         if (port_json) {
-                            auto port = port_json->valueint;
-                            Serial.println("port: " + String(port));
+                            udp_port = port_json->valueint;
+                            Serial.println("port: " + String(udp_port));
                         }
                         cJSON *conv_json = cJSON_GetObjectItem(root, "kcp_conv");
                         if (conv_json) {
-                            auto conv = conv_json->valueint;
-                            Serial.println("conv: " + String(conv));
+                            kcp_conv = conv_json->valueint;
+                            Serial.println("conv: " + String(kcp_conv));
                         }
                     }
                     cJSON_Delete(root);
+                    // start kcp thread
+                    xTaskCreate(
+                        KCP_Thread,
+                        "KCP_Thread",
+                        4096,
+                        NULL,
+                        5,
+                        &kcp_task_handle);
                 }
             } else {
                 cnt++;
@@ -80,6 +139,12 @@ void TCP_Thread(void *para) {
             }
         } else { // disconnected, try to connect it
             Serial.println("client disconnected");
+            if (kcp_task_handle) {
+                vTaskDelete(kcp_task_handle);
+                kcp_task_handle = NULL;
+                Serial.println("delete kcp task");
+            }
+
             client.connect(IPAddress(192, 168, 4, 1), 12345);
             delay(100);
             client.println("req");

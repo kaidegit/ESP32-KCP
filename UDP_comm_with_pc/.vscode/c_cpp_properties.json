@@ -8,10 +8,10 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/include",
-                "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/src",
+                "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/include",
+                "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/src",
                 "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/lib/KCP",
+                "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/lib/KCP",
                 "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/libraries/AsyncUDP/src",
                 "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/newlib/platform_include",
                 "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include",
@@ -235,10 +235,10 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/include",
-                    "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/src",
+                    "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/include",
+                    "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/src",
                     "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                    "C:/Users/yekai/Documents/GitHub/ESP32-KCPoverUDP/lib/KCP",
+                    "C:/Users/yekai/Documents/GitHub/ESP32-KCP/UDP_comm_with_pc/lib/KCP",
                     "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/libraries/AsyncUDP/src",
                     "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/newlib/platform_include",
                     "C:/Users/yekai/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include",
@@ -461,7 +461,7 @@
                 ]
             },
             "defines": [
-                "PLATFORMIO=60106",
+                "PLATFORMIO=60110",
                 "ARDUINO_ESP32C3_DEV",
                 "HAVE_CONFIG_H",
                 "MBEDTLS_CONFIG_FILE=\"mbedtls/esp_config.h\"",
@@ -480,8 +480,8 @@
                 "ARDUINO_PARTITION_default",
                 ""
             ],
-            "cStandard": "c99",
-            "cppStandard": "c++11",
+            "cStandard": "gnu99",
+            "cppStandard": "gnu++11",
             "compilerPath": "C:/Users/yekai/.platformio/packages/toolchain-riscv32-esp/bin/riscv32-esp-elf-gcc.exe",
             "compilerArgs": [
                 "-march=rv32imc",
