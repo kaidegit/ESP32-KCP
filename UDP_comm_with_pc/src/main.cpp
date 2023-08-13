@@ -9,12 +9,6 @@ AsyncUDP udp;
 ikcpcb *kcp;
 
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
-    union {
-        int id;
-        void *ptr;
-    } parameter;
-    parameter.ptr = user;
-    // vnet->send(parameter.id, buf, len);
     udp.write((const uint8_t *)buf, (size_t)len);
     return 0;
 }
@@ -49,32 +43,11 @@ void setup() {
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
-
-    // udp.
-
+    
     if (udp.connect(IPAddress(192, 168, 123, 23), 23456)) {
         Serial.println("UDP connected");
         udp.onPacket([&](AsyncUDPPacket packet) {
-            printf("udp recv\r\n");
             ikcp_input(kcp, (const char *)packet.data(), packet.length());
-            // Serial.print("UDP Packet Type: ");
-            // Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
-            //                                                                        : "Unicast");
-            // Serial.print(", From: ");
-            // Serial.print(packet.remoteIP());
-            // Serial.print(":");
-            // Serial.print(packet.remotePort());
-            // Serial.print(", To: ");
-            // Serial.print(packet.localIP());
-            // Serial.print(":");
-            // Serial.print(packet.localPort());
-            // Serial.print(", Length: ");
-            // Serial.print(packet.length());
-            // Serial.print(", Data: ");
-            // Serial.write(packet.data(), packet.length());
-            // Serial.println();
-            // // reply to the client
-            // packet.printf("Got %u bytes of data", packet.length());
         });
         // Send unicast
         udp.print("Hello Server!");
@@ -84,10 +57,6 @@ void setup() {
 }
 
 void loop() {
-    // Serial.printf("Hello World\r\n");
-    // delay(1000);
-    // udp.broadcastTo("Anyone here?", 23456);
-
     static int cnt = 0;
     static int retrans_time = 0;
     static char buf[1024];
