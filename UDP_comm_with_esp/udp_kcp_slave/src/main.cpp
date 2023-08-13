@@ -16,14 +16,7 @@ ikcpcb *kcp;
 TaskHandle_t kcp_task_handle;
 
 int udp_output(const char *buf, int len, ikcpcb *kcp, void *user) {
-    union {
-        int id;
-        void *ptr;
-    } parameter;
-    parameter.ptr = user;
-    // vnet->send(parameter.id, buf, len);
     udp.writeTo((const uint8_t *)buf, len, remoteIP, udp_port);
-    // udp.write((const uint8_t *)buf, (size_t)len);
     return 0;
 }
 
@@ -53,47 +46,12 @@ void KCP_Thread(void *para) {
     Serial.println("UDP connected at port " + String(udp_port));
     udp.onPacket([](AsyncUDPPacket packet) {
         ikcp_input(kcp, (const char *)packet.data(), packet.length());
-
-        // Serial.print("UDP Packet Type: ");
-        // Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
-        //                                                                        : "Unicast");
-        // Serial.print(", From: ");
-        // Serial.print(packet.remoteIP());
-        // Serial.print(":");
-        // Serial.print(packet.remotePort());
-        // Serial.print(", To: ");
-        // Serial.print(packet.localIP());
-        // Serial.print(":");
-        // Serial.print(packet.localPort());
-        // Serial.print(", Length: ");
-        // Serial.print(packet.length());
-        // Serial.print(", Data: ");
-        // Serial.write(packet.data(), packet.length());
-        // Serial.println();
-        // reply to the client
-        // packet.printf("Got %u bytes of data", packet.length());
     });
-    // Send unicast
-    // udp.broadcastTo("Anyone here?", 1234);
-    // delay(100);
-    // udp.print("Hello Server!");
-    // delay(100);
-    // const char* msg = "Hello Server!";
-    // udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, udp_port);
     
     uint32_t cnt = 0;
     kcp_init();
 
     while (1) {
-        // delay(1000);
-        // udp.broadcastTo("Anyone here?", udp_port);
-        // char msg[1024];
-        // sprintf(msg, "hello master %d", cnt++);
-        // udp.writeTo((const uint8_t *)msg, strlen(msg), remoteIP, udp_port);
-        // delay(1000);
-        // udp.print("Hello Server!");
-        // delay(1000);
-
         ikcp_update(kcp, millis());
         auto len = ikcp_recv(kcp, buf, 1024);
         if (len > 0) {
@@ -195,70 +153,8 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     xTaskCreate(TCP_Thread, "TCP_Thread", 4096, NULL, 5, NULL);
-
-    // udp.
-
-    // if (udp.connect(IPAddress(192, 168, 123, 23), 23456)) {
-    //     Serial.println("UDP connected");
-    //     udp.onPacket([&](AsyncUDPPacket packet) {
-    //         printf("udp recv\r\n");
-    //         ikcp_input(kcp, (const char *)packet.data(), packet.length());
-    //         // Serial.print("UDP Packet Type: ");
-    //         // Serial.print(packet.isBroadcast() ? "Broadcast" : packet.isMulticast() ? "Multicast"
-    //         //                                                                        : "Unicast");
-    //         // Serial.print(", From: ");
-    //         // Serial.print(packet.remoteIP());
-    //         // Serial.print(":");
-    //         // Serial.print(packet.remotePort());
-    //         // Serial.print(", To: ");
-    //         // Serial.print(packet.localIP());
-    //         // Serial.print(":");
-    //         // Serial.print(packet.localPort());
-    //         // Serial.print(", Length: ");
-    //         // Serial.print(packet.length());
-    //         // Serial.print(", Data: ");
-    //         // Serial.write(packet.data(), packet.length());
-    //         // Serial.println();
-    //         // // reply to the client
-    //         // packet.printf("Got %u bytes of data", packet.length());
-    //     });
-    //     // Send unicast
-    //     udp.print("Hello Server!");
-    // }
-
-    // kcp_init();
 }
 
 void loop() {
-    // Serial.printf("Hello World\r\n");
-    // delay(1000);
-    // udp.broadcastTo("Anyone here?", 23456);
-
-    // static int cnt = 0;
-    // static int retrans_time = 0;
-    // static char buf[1024];
-
-    // ikcp_update(kcp, millis());
-    // cnt++;
-    // if (cnt % 100 == 0) {
-    //     printf("kcp send\r\n");
-    //     const char* hello = "hello from esp32";
-    //     ikcp_send(kcp, hello, strlen(hello) + 1);
-    // }
-    // auto len = ikcp_recv(kcp, buf, 1024);
-    // if (len > 0) {
-    //     retrans_time = 0;
-    //     printf("kcp recv");
-    //     buf[len] = 0;
-    //     printf(buf);
-    // } else {
-    //     retrans_time ++;
-    //     if (retrans_time > 1000) {
-    //         retrans_time = 0;
-    //         Serial.println("restart kcp");
-    //         kcp_deinit();
-    //         kcp_init();
-    //     }
-    // }
     delay(10);
 }
