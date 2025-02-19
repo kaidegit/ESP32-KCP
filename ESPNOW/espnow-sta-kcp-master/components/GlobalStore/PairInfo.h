@@ -12,14 +12,14 @@
 #include "esp_err.h"
 
 struct PairInfo {
-    using pair_status_t = enum {
+    enum class pair_status_t : uint8_t {
         NOT_PAIRED,
         PAIRING,
         PAIRED,
         BROADCASTING,
     };
 
-    pair_status_t status = NOT_PAIRED;
+    pair_status_t status = pair_status_t::NOT_PAIRED;
 
     std::array<uint8_t, 6> GetPairedMac();
 
@@ -27,7 +27,7 @@ struct PairInfo {
 
     void SetConv(uint32_t conv);
 
-    uint32_t CreateConv(std::array<uint8_t, 6> mac);
+    static uint32_t CreateConv(std::array<uint8_t, 6> mac);
 
     uint32_t CreateConv();
 

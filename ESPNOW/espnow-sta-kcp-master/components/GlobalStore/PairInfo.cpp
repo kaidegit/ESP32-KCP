@@ -12,16 +12,27 @@
 #include "wireless.h"
 #include "esp_log.h"
 
+static const char *const TAG = "PairInfo";
+
 PairInfo pairInfo;
 
 static bool is_valid_mac(std::string_view mac) {
-    if (mac.size() != 17) return false;  // 检查长度是否为 17 (包括分隔符)
+    if (mac.size() != 17) {
+        ESP_LOGW(TAG, "mac size error %d", mac.size());
+        return false;
+    }
 
     for (size_t i = 0; i < mac.size(); ++i) {
         if (i % 3 == 2) {
-            if (mac[i] != ':') return false;  // 每隔两个字符应该是冒号分隔
+            if (mac[i] != ':') {
+                ESP_LOGW(TAG, "mac[%d] `%c` is not :", i, mac[i]);
+                return false;  // 每隔两个字符应该是冒号分隔
+            }
         } else {
-            if (!std::isxdigit(mac[i])) return false;  // 检查每个字符是否是十六进制数字
+            if (!std::isxdigit(mac[i])) {
+                ESP_LOGW(TAG, "mac[%d] `%c` is not hex digit", i, mac[i]);
+                return false;  // 检查每个字符是否是十六进制数字
+            }
         }
     }
     return true;
@@ -49,7 +60,7 @@ std::array<uint8_t, 6> PairInfo::LoadPairedMac() {
     memset(saved_mac.get(), 0, saved_mac_len);
     ret = handle->get_string(paired_mac_key, saved_mac.get(), saved_mac_len);
     // "XX:XX:XX:XX:XX:XX" -> array
-//    ESP_LOGI(TAG, "load mac " MACSTR "", MAC2STR(saved_mac.get()));
+    ESP_LOGI(TAG, "load mac `%s`", saved_mac.get());
     if (!is_valid_mac(saved_mac.get())) {
         ESP_LOGW(TAG, "saved_mac is not valid");
         return mac;
@@ -73,12 +84,8 @@ std::array<uint8_t, 6> PairInfo::LoadPairedMac() {
 
 esp_err_t PairInfo::SavePairedMac(std::array<uint8_t, 6> mac) {
     esp_err_t ret = ESP_OK;
-    std::string mac_str;
-    for (auto byte: mac) {
-        mac_str += std::to_string(byte);
-        mac_str += ":";
-    }
-    mac_str.pop_back();
+    char mac_str[32];
+    snprintf(mac_str, 32, MACSTR, MAC2STR(mac));
 
     ret = SavePairedMac(mac_str);
     if (ret != ESP_OK) {
@@ -91,12 +98,8 @@ esp_err_t PairInfo::SavePairedMac(std::array<uint8_t, 6> mac) {
 
 esp_err_t PairInfo::SavePairedMac(std::span<uint8_t, 6> mac) {
     esp_err_t ret = ESP_OK;
-    std::string mac_str;
-    for (auto byte: mac) {
-        mac_str += std::to_string(byte);
-        mac_str += ":";
-    }
-    mac_str.pop_back();
+    char mac_str[32];
+    snprintf(mac_str, 32, MACSTR, MAC2STR(mac));
 
     ret = SavePairedMac(mac_str);
     if (ret != ESP_OK) {
@@ -172,7 +175,10 @@ void PairInfo::SetConv(uint32_t conv) {
 }
 
 uint32_t PairInfo::CreateConv(std::array<uint8_t, 6> mac) {
-    conv = mac[4] << 24 | mac[5] << 16 | (esp_random() & 0xFF) << 8;
+    // conv should be int32_t because number in cjson is int32_t
+//    ESP_LOGI(TAG, "mac: %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    auto conv = (mac[4] << 24 | mac[5] << 16 | (esp_random() & 0xFF) << 8) & 0x7FFFFFFF;
+//    ESP_LOGI(TAG, "create conv: %08lx", conv);
     return conv;
 }
 

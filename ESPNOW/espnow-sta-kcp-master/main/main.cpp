@@ -8,6 +8,9 @@
 #include "wireless.h"
 #include "PairInfo.h"
 #include "led.h"
+#include "kcp.h"
+
+#define TAG "main"
 
 extern "C" void app_main(void) {
     // Initialize NVS
@@ -24,10 +27,20 @@ extern "C" void app_main(void) {
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     ESP_LOGI("main", "mac: %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Wireless::GetInstance();
-    pairInfo.status = PairInfo::PAIRING;
-    // we use master mac[3], mac[4], mac[5] and 1byte state as kcp conv
+    pairInfo.status = PairInfo::pair_status_t::PAIRING;
+    vTaskDelay(pdMS_TO_TICKS(5000));
     while (1) {
-        ESP_LOGI("main", "Hello World! This is Master.");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        if (pairInfo.status == PairInfo::pair_status_t::PAIRED) {
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
+
+    ESP_LOGI(TAG, "start kcp");
+    xTaskCreate(KCP_Task, "KCP_Task", 4096, NULL, 5, NULL);
+
+//    while (1) {
+//        ESP_LOGI("main", "Hello World! This is Master.");
+//        vTaskDelay(pdMS_TO_TICKS(5000));
+//    }
 }

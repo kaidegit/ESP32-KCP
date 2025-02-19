@@ -6,6 +6,7 @@
 #include <esp_random.h>
 #include "esp_mac.h"
 #include <memory>
+#include <ikcp.h>
 #include "wireless.h"
 #include "esp_log.h"
 #include "PairInfo.h"
@@ -15,6 +16,8 @@
 #include "led.h"
 
 Wireless *Wireless::instance = nullptr;
+extern SemaphoreHandle_t kcp_mutex;
+extern ikcpcb *kcp;
 
 esp_err_t Wireless::InitWiFi(wifi_mode_t wifi_mode, uint8_t wifi_channel) {
     ESP_ERROR_CHECK(esp_netif_init());
@@ -151,8 +154,7 @@ void Wireless::espnow_event_task(void *parameter) {
             }
                 break;
             case ESPNOW_RECV_CB: {  // 收到数据
-                ESP_LOGI(TAG, "Receive ESPNOW data..");
-                ESP_LOGI(TAG, "pair status now is %s", magic_enum::enum_name(pairInfo.status).data());
+                ESP_LOGI(TAG, "Recv Data when PairStatus: %s", magic_enum::enum_name(pairInfo.status).data());
                 switch (pairInfo.status) {
                     using
                     enum PairInfo::pair_status_t;
@@ -163,10 +165,9 @@ void Wireless::espnow_event_task(void *parameter) {
                             reinterpret_cast<char *>(event.info.recv_cb.data),
                             event.info.recv_cb.data_len
                         );
-                        ESP_LOGI(TAG, "Receive broadcast ESPNOW data from " MACSTR "",
-                                 MAC2STR(event.info.recv_cb.src_addr)
-                        );
-                        ESP_LOG_BUFFER_HEX(TAG, msg.data(), msg.size());
+                        ESP_LOGI(TAG, "Receive broadcast ESPNOW data from " MACSTR,
+                                 MAC2STR(event.info.recv_cb.src_addr));
+                        ESP_LOGI(TAG, "Recv %.*s", msg.size(), msg.data());
                         auto json = cJSON_Parse(msg.data());
                         if (!json) {
                             ESP_LOGW(TAG, "Parse json fail");
@@ -179,10 +180,17 @@ void Wireless::espnow_event_task(void *parameter) {
                             cJSON_Delete(json);
                             break;
                         }
-                        if ((hello_field->type != cJSON_String) or
-                            (strcmp(hello_field->valuestring, "World") != 0)) {
-                            ESP_LOGW(TAG, "Hello field is not World");
+//                        if ((hello_field->type != cJSON_String) or
+//                            (strcmp(hello_field->valuestring, "World") != 0)) {
+//                            ESP_LOGW(TAG, "Hello field is not World");
+//                            cJSON_Delete(json);
+//                            break;
+//                        }
+                        if ((hello_field->type == cJSON_String) and
+                            (strcmp(hello_field->valuestring, "OK") == 0)) {
+                            ESP_LOGI(TAG, "Recv Hello OK, pairing done");
                             cJSON_Delete(json);
+                            pairInfo.status = PAIRED;
                             break;
                         }
                         if (memcmp(event.info.recv_cb.src_addr, pairInfo.GetPairedMac().data(), 6) == 0) {
@@ -192,19 +200,38 @@ void Wireless::espnow_event_task(void *parameter) {
                             if (ret != ESP_OK) {
                                 ESP_LOGW(TAG, "Save paired mac fail");
                             } else {
-                                ESP_LOGI(TAG, "Paired with " MACSTR "", MAC2STR(pairInfo.GetPairedMac().data()));
+                                ESP_LOGI(TAG, "Paired with " MACSTR, MAC2STR(pairInfo.GetPairedMac().data()));
                             }
+                            instance->espnow_pair_helper(pairInfo.GetPairedMac());
                         }
+                        auto conv = PairInfo::CreateConv(pairInfo.GetPairedMac());
+                        pairInfo.SetConv(conv);
                         // send Hello World back to let the other device know we are paired
-                        instance->espnow_pair_helper(pairInfo.GetPairedMac());
-                        static const uint8_t _msg[] = R"({"Hello": "World"})";
-                        esp_now_send(pairInfo.GetPairedMac().data(), _msg, sizeof(_msg));
+                        auto rsp_json = cJSON_CreateObject();
+                        cJSON_AddStringToObject(rsp_json, "protocol", "kcp");
+                        cJSON_AddNumberToObject(rsp_json, "conv", conv);
+                        auto _msg = cJSON_PrintUnformatted(rsp_json);
+                        esp_now_send(pairInfo.GetPairedMac().data(), (const uint8_t *) _msg, strlen(_msg));
+                        cJSON_Delete(rsp_json);
+                        cJSON_free(_msg);
                         blink_led();
                     }
                 }
                     break;
                 case PAIRED: {
-
+                    auto msg = std::string_view(
+                        reinterpret_cast<char *>(event.info.recv_cb.data),
+                        event.info.recv_cb.data_len
+                    );
+                    ESP_LOGI(TAG, "Receive ESPNOW data from " MACSTR,
+                             MAC2STR(event.info.recv_cb.src_addr));
+                    if (!kcp_mutex or !kcp) {
+                        ESP_LOGW(TAG, "KCP not initialized");
+                        break;
+                    }
+                    xSemaphoreTake(kcp_mutex, portMAX_DELAY);
+                    ikcp_input(kcp, (const char *) msg.data(), msg.size());
+                    xSemaphoreGive(kcp_mutex);
                 }
                     break;
                 default:

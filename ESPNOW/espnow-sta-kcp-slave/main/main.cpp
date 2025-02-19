@@ -8,6 +8,9 @@
 #include "wireless.h"
 #include "PairInfo.h"
 #include "led.h"
+#include "magic_enum.hpp"
+#include "ikcp.h"
+#include "kcp.h"
 
 static const char *const TAG = "main";
 
@@ -26,15 +29,20 @@ extern "C" void app_main(void) {
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     ESP_LOGI("main", "mac: %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     Wireless::GetInstance();
+    pairInfo.status = PairInfo::pair_status_t::BROADCASTING;
     uint8_t b_addr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     uint8_t msg[] = R"({"Hello": "World"})";
-    // we use master mac[3], mac[4], mac[5] and 1byte state as kcp conv
-    while (1) {
-        blink_led();
-        ESP_LOGI("main", "Hello World! This is Slave.");
-        ret = esp_now_send(b_addr, msg, sizeof(msg));
-        ESP_LOGI("main", "esp_now_send ret: %d", ret);
-        vTaskDelay(pdMS_TO_TICKS(500));
+    esp_now_send(b_addr, msg, sizeof(msg));
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    if (pairInfo.GetConv()) {
+        pairInfo.status = PairInfo::pair_status_t::PAIRED;
+    } else {
+        pairInfo.status = PairInfo::pair_status_t::NOT_PAIRED;
+        ESP_LOGI(TAG, "broadcast done, pair failed");
+        return;
     }
+    ESP_LOGI(TAG, "broadcast done, status: %s", magic_enum::enum_name(pairInfo.status).data());
+
+    xTaskCreate(KCP_Task, "KCP_Task", 4096, NULL, 5, NULL);
 }
 
